@@ -114,20 +114,20 @@
             div.innerText = pos.id;
             div.onclick = () => {
                 // 学年の1文字目（小・中・高）だけを抽出して判定に使う
-    const gradeClass = currentUser.grade.substring(0, 1); 
+    　　　　　　const gradeClass = currentUser.grade.substring(0, 1); 
     
-    // 全座席から選択色を一度クリア（全ての可能性を削除）
-    document.querySelectorAll('.seat').forEach(s => {
-        s.classList.remove('selected-小', 'selected-中', 'selected-高');
-    });
+    　　　　　　// 全座席から選択色を一度クリア（全ての可能性を削除）
+    　　　　　　document.querySelectorAll('.seat').forEach(s => {
+        　　　　s.classList.remove('selected-小', 'selected-中', 'selected-高');
+    　　　　　　});
 
-    // 判定した学年色を追加
-    div.classList.add(`selected-${gradeClass}`);
+   　　　　　　 // 判定した学年色を追加
+   　　　　　　 div.classList.add(`selected-${gradeClass}`);
     
-    selectedSeat = pos.id;
-    document.getElementById('reserve-btn').style.display = 'block';
-    document.getElementById('status').innerHTML = `<strong>${pos.id}番席</strong> (${currentUser.grade}) を選択中`;
-};
+  　　　　　　  selectedSeat = pos.id;
+   　　　　　　 document.getElementById('reserve-btn').style.display = 'block';
+   　　　　　　 document.getElementById('status').innerHTML = `<strong>${pos.id}番席</strong> (${currentUser.grade}) を選択中`;
+　　　　　　　};
             layers.appendChild(div);
         });
     }
@@ -150,5 +150,6 @@
 </script>
 </body>
 </html>
+
 
 
