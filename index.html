@@ -3,85 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>学習空間 向日教室：座席予約システム</title>
+    <title>学習空間 向日教室：座席予約</title>
     <style>
-        :root {
-            --小: rgba(255, 60, 60, 0.7);   /* 赤 */
-            --中: rgba(60, 150, 255, 0.7);  /* 青 */
-            --高: rgba(60, 200, 60, 0.7);   /* 緑 */
-            --選択: rgba(255, 140, 0, 0.9); /* オレンジ */
-        }
         body { font-family: sans-serif; margin: 0; background: #f0f2f5; display: flex; flex-direction: column; align-items: center; }
-        
-        /* 図面コンテナ */
-        .map-wrapper {
-            position: relative;
-            width: 100%;
-            max-width: 900px;
-            margin: 20px auto;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            background: #fff;
-        }
+        .map-wrapper { position: relative; width: 100%; max-width: 900px; margin: 20px auto; background: #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
         .classroom-map { width: 100%; display: block; }
-
-        /* 座席ボタン：スマホでも押しやすい縦長サイズ */
         .seat {
-            position: absolute;
-            width: 5.8%;  /* 横幅 */
-            height: 8.5%; /* 縦幅（大きくしました） */
-            border: 1px solid rgba(0,0,0,0.2);
-            border-radius: 4px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-            font-weight: bold;
-            background: rgba(255,255,255,0.2);
-            transition: all 0.2s;
+            position: absolute; width: 6%; height: 9%; border: 1px solid rgba(0,0,0,0.2);
+            border-radius: 4px; cursor: pointer; display: flex; align-items: center;
+            justify-content: center; font-size: 12px; font-weight: bold;
+            background: rgba(255,255,255,0.5); transition: all 0.2s;
         }
-
-        /* 状態別の色分け */
-        .res-小 { background-color: var(--小) !important; color: white; border: none; }
-        .res-中 { background-color: var(--中) !important; color: white; border: none; }
-        .res-高 { background-color: var(--高) !important; color: white; border: none; }
-        .selected { 
-            background-color: var(--選択) !important; 
-            color: white; 
-            border: 2px solid #fff; 
-            transform: scale(1.15);
-            z-index: 100;
-            box-shadow: 0 0 10px rgba(0,0,0,0.4);
-        }
-
-        /* 操作パネル */
-        .control-panel { background: white; width: 90%; max-width: 450px; padding: 20px; border-radius: 12px; text-align: center; margin: 10px 0 40px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        .btn-submit { 
-            padding: 15px 30px; background: #fd7e14; color: white; border: none; 
-            border-radius: 30px; cursor: pointer; display: none; margin: 15px auto 0;
-            font-size: 16px; font-weight: bold; width: 100%;
-        }
-        #status { font-size: 14px; color: #444; }
+        .selected { background-color: rgba(255, 140, 0, 0.9) !important; color: white; transform: scale(1.1); z-index: 10; }
+        .control-panel { background: white; width: 90%; max-width: 450px; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 40px; }
+        .btn-submit { padding: 15px; background: #fd7e14; color: white; border: none; border-radius: 30px; cursor: pointer; display: none; width: 100%; font-size: 16px; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <h3 style="margin-top:20px; color:#333;">向日教室 座席予約</h3>
+    <h3 style="margin-top:20px;">向日教室 座席予約</h3>
 
     <div class="map-wrapper">
-        <img src="向日教室(2025出席表)-01.jpg" class="classroom-map" onerror="this.style.display='none'; alert('画像が見つかりません。HTMLと同じフォルダに画像を置いてください。');">
-        <div id="seat-layers"></div>
-    </div>
+        <img src="向日教室(2025出席表)-01.jpg" class="classroom-map">
+        <div id="seat-layers"></div> </div>
 
     <div class="control-panel">
-        <div id="status">図面上の「座席」をタップしてください</div>
-        <button id="reserve-btn" class="btn-submit" onclick="submit()">この内容で予約を確定する</button>
+        <div id="status">座席をタップしてください</div>
+        <button id="reserve-btn" class="btn-submit" onclick="submitData()">予約を確定する</button>
     </div>
 
 <script>
-    // イラスト上の「座席」という文字に重ねる座標データ（27席分）
+    // 1. GASのURLをここに貼り付けてください
+    const GAS_URL = https://script.google.com/macros/s/AKfycbxxzQktxhQ57qpFo1JVaa01QO_SJcCkIDwjVCdTpT-Ay6Mcm1secjEs2GAuTwpMhpHc/exec;
+
     const seatPositions = [
         {id: 1, t: 20, l: 47.5}, {id: 2, t: 20, l: 53.5}, {id: 3, t: 20, l: 59.5},
         {id: 4, t: 30, l: 29.5}, {id: 5, t: 30, l: 34.5}, {id: 6, t: 30, l: 41.5}, {id: 7, t: 30, l: 47.5}, {id: 8, t: 30, l: 54.5}, {id: 9, t: 30, l: 60.5}, {id: 10, t: 30, l: 66.5},
@@ -94,48 +48,42 @@
     const layers = document.getElementById('seat-layers');
     let selectedId = null;
 
+    // 座席ボタンを生成
     seatPositions.forEach(pos => {
         const div = document.createElement('div');
         div.className = 'seat';
         div.style.top = pos.t + '%';
         div.style.left = pos.l + '%';
         div.innerText = pos.id;
-
-        // デモ用予約済みデータ（動作確認用）
-        if(pos.id === 5) div.classList.add('res-小');
-        if(pos.id === 18) div.classList.add('res-中');
-
         div.onclick = () => {
-            // 予約済みは選択不可
-            if(div.classList.contains('res-小') || div.classList.contains('res-中') || div.classList.contains('res-高')) return;
-            
-            // 選択状態の切り替え
             document.querySelectorAll('.seat').forEach(s => s.classList.remove('selected'));
             div.classList.add('selected');
             selectedId = pos.id;
-            document.getElementById('status').innerHTML = `<strong>${pos.id}番席</strong> を選択しました`;
+            document.getElementById('status').innerHTML = `<strong>${pos.id}番席</strong> を選択中`;
             document.getElementById('reserve-btn').style.display = 'block';
         };
         layers.appendChild(div);
     });
 
-    function submit() {
-        const gasUrl = "https://script.google.com/macros/s/AKfycbxxzQktxhQ57qpFo1JVaa01QO_SJcCkIDwjVCdTpT-Ay6Mcm1secjEs2GAuTwpMhpHc/exec";
+    // スプレッドシート送信関数
+    function submitData() {
+        const btn = document.getElementById('reserve-btn');
+        btn.disabled = true;
+        btn.innerText = "送信中...";
 
-        // スプレッドシートへ送信
-        fetch(gasUrl, {
+        fetch(GAS_URL, {
             method: "POST",
             body: JSON.stringify({ "seatId": selectedId })
         })
-        .then(response => {
-            alert(selectedId + "番席の予約を承りました。スプレッドシートに記録しました！");
+        .then(() => {
+            alert(selectedId + "番席の予約を承りました。");
             location.reload();
         })
-        .catch(error => {
-            alert("エラーが発生しました。もう一度お試しください。");
-            console.error(error);
+        .catch(err => {
+            alert("エラーが発生しました。");
+            btn.disabled = false;
+            btn.innerText = "予約を確定する";
         });
-    }
     }
 </script>
 </body>
