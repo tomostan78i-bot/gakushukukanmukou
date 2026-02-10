@@ -3,88 +3,140 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>学習空間 向日教室：座席予約</title>
+    <title>学習空間 向日教室 予約システム</title>
     <style>
         body { font-family: sans-serif; margin: 0; background: #f0f2f5; display: flex; flex-direction: column; align-items: center; }
-        .map-wrapper { position: relative; width: 100%; max-width: 900px; margin: 20px auto; background: #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .screen { display: none; width: 100%; max-width: 500px; padding: 20px; box-sizing: border-box; }
+        .active { display: block; }
+        
+        /* ログイン画面 */
+        .login-card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        
+        /* マップ画面 */
+        .map-wrapper { position: relative; width: 100%; background: #fff; margin: 10px 0; }
         .classroom-map { width: 100%; display: block; }
         .seat {
             position: absolute; width: 6%; height: 9%; border: 1px solid rgba(0,0,0,0.2);
             border-radius: 4px; cursor: pointer; display: flex; align-items: center;
-            justify-content: center; font-size: 12px; font-weight: bold;
-            background: rgba(255,255,255,0.5); transition: all 0.2s;
+            justify-content: center; font-size: 10px; font-weight: bold;
+            background: rgba(255,255,255,0.6);
         }
-        .selected { background-color: rgba(255, 140, 0, 0.9) !important; color: white; transform: scale(1.1); z-index: 10; }
-        .control-panel { background: white; width: 90%; max-width: 450px; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 40px; }
-        .btn-submit { padding: 15px; background: #fd7e14; color: white; border: none; border-radius: 30px; cursor: pointer; display: none; width: 100%; font-size: 16px; font-weight: bold; }
+        
+        /* 学年カラー */
+        .selected-小 { background-color: rgba(255, 60, 60, 0.9) !important; color: white; }
+        .selected-中 { background-color: rgba(60, 150, 255, 0.9) !important; color: white; }
+        .selected-高 { background-color: rgba(60, 200, 60, 0.9) !important; color: white; }
+
+        .control-panel { background: white; padding: 20px; border-radius: 12px; text-align: center; }
+        select { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; }
+        .btn { width: 100%; padding: 15px; border: none; border-radius: 30px; font-weight: bold; cursor: pointer; }
+        .btn-main { background: #fd7e14; color: white; }
     </style>
 </head>
 <body>
 
-    <h3 style="margin-top:20px;">向日教室 座席予約</h3>
-
-    <div class="map-wrapper">
-        <img src="向日教室(2025出席表)-01.jpg" class="classroom-map">
-        <div id="seat-layers"></div>
+    <div id="login-screen" class="screen active">
+        <div class="login-card">
+            <h2>向日教室 ログイン</h2>
+            <input type="text" id="student-id" placeholder="生徒番号">
+            <input type="password" id="birth-day" placeholder="誕生日 (例: 0512)">
+            <button class="btn btn-main" onclick="login()">ログイン</button>
+        </div>
     </div>
 
-    <div class="control-panel">
-        <div id="status">座席をタップしてください</div>
-        <button id="reserve-btn" class="btn-submit" onclick="submitData()">予約を確定する</button>
+    <div id="reserve-screen" class="screen">
+        <h3>こんにちは、<span id="user-display"></span>さん</h3>
+        <div class="map-wrapper">
+            <img src="向日教室(2025出席表)-01.jpg" class="classroom-map">
+            <div id="seat-layers"></div>
+        </div>
+        <div class="control-panel">
+            <label>開始時間を選択:</label>
+            <select id="start-time"></select>
+            <div id="status" style="margin-bottom:10px;">席を選んでください</div>
+            <button id="reserve-btn" class="btn btn-main" style="display:none;" onclick="reserve()">予約を確定する</button>
+        </div>
     </div>
 
 <script>
-    // 1. GASのURLを "" で囲むように修正しました
     const GAS_URL = "https://script.google.com/macros/s/AKfycbxxzQktxhQ57qpFo1JVaa01QO_SJcCkIDwjVCdTpT-Ay6Mcm1secjEs2GAuTwpMhpHc/exec";
+    let currentUser = null;
+    let selectedSeat = null;
 
-    const seatPositions = [
-        {id: 1, t: 20, l: 47.5}, {id: 2, t: 20, l: 53.5}, {id: 3, t: 20, l: 59.5},
-        {id: 4, t: 30, l: 29.5}, {id: 5, t: 30, l: 34.5}, {id: 6, t: 30, l: 41.5}, {id: 7, t: 30, l: 47.5}, {id: 8, t: 30, l: 54.5}, {id: 9, t: 30, l: 60.5}, {id: 10, t: 30, l: 66.5},
-        {id: 11, t: 40, l: 34.5}, {id: 12, t: 40, l: 41.5}, {id: 13, t: 40, l: 46.5}, {id: 14, t: 40, l: 54.5}, {id: 15, t: 40, l: 61.5}, {id: 16, t: 40, l: 67.5},
-        {id: 17, t: 20, l: 75.5}, {id: 18, t: 29, l: 75.5}, {id: 19, t: 39, l: 75.5}, {id: 20, t: 48, l: 75.5}, {id: 21, t: 57, l: 75.5},
-        {id: 22, t: 34, l: 18.5}, {id: 23, t: 39, l: 23.5}, {id: 24, t: 45, l: 28.5}, {id: 25, t: 51, l: 33.5},
-        {id: 26, t: 59, l: 64.5}, {id: 27, t: 59, l: 70.5}
-    ];
+    // 15分刻みの時間生成 ($16:30 \sim 22:30$)
+    const select = document.getElementById('start-time');
+    for(let h=16; h<=22; h++){
+        for(let m=0; m<60; m+=15){
+            if(h==16 && m<30) continue;
+            if(h==22 && m>30) break;
+            let time = `${h}:${m==0?'00':m}`;
+            let opt = new Array(time);
+            select.add(new Option(time, time));
+        }
+    }
 
-    const layers = document.getElementById('seat-layers');
-    let selectedId = null;
-
-    // 座席ボタンを生成
-    seatPositions.forEach(pos => {
-        const div = document.createElement('div');
-        div.className = 'seat';
-        div.style.top = pos.t + '%';
-        div.style.left = pos.l + '%';
-        div.innerText = pos.id;
-        div.onclick = () => {
-            document.querySelectorAll('.seat').forEach(s => s.classList.remove('selected'));
-            div.classList.add('selected');
-            selectedId = pos.id;
-            document.getElementById('status').innerHTML = `<strong>${pos.id}番席</strong> を選択中`;
-            document.getElementById('reserve-btn').style.display = 'block';
-        };
-        layers.appendChild(div);
-    });
-
-    // スプレッドシート送信関数
-    function submitData() {
-        const btn = document.getElementById('reserve-btn');
-        btn.disabled = true;
-        btn.innerText = "送信中...";
-
-        fetch(GAS_URL, {
+    // ログイン処理
+    async function login() {
+        const id = document.getElementById('student-id').value;
+        const pass = document.getElementById('birth-day').value;
+        
+        const res = await fetch(GAS_URL, {
             method: "POST",
-            body: JSON.stringify({ "seatId": selectedId })
-        })
-        .then(() => {
-            alert(selectedId + "番席の予約を承りました。");
-            location.reload();
-        })
-        .catch(err => {
-            alert("エラーが発生しました。");
-            btn.disabled = false;
-            btn.innerText = "予約を確定する";
+            body: JSON.stringify({ type: "login", id: id, pass: pass })
+        }).then(r => r.json());
+
+        if(res.result === "success") {
+            currentUser = { id: id, name: res.name, grade: res.grade };
+            document.getElementById('user-display').innerText = res.name;
+            document.getElementById('login-screen').classList.remove('active');
+            document.getElementById('reserve-screen').classList.add('active');
+            initMap();
+        } else {
+            alert("ログインに失敗しました。");
+        }
+    }
+
+    function initMap() {
+        const seatPositions = [
+            {id: 1, t: 20, l: 47.5}, {id: 2, t: 20, l: 53.5}, {id: 3, t: 20, l: 59.5},
+            {id: 4, t: 30, l: 29.5}, {id: 5, t: 30, l: 34.5}, {id: 6, t: 30, l: 41.5}, {id: 7, t: 30, l: 47.5}, {id: 8, t: 30, l: 54.5}, {id: 9, t: 30, l: 60.5}, {id: 10, t: 30, l: 66.5},
+            {id: 11, t: 40, l: 34.5}, {id: 12, t: 40, l: 41.5}, {id: 13, t: 40, l: 46.5}, {id: 14, t: 40, l: 54.5}, {id: 15, t: 40, l: 61.5}, {id: 16, t: 40, l: 67.5},
+            {id: 17, t: 20, l: 75.5}, {id: 18, t: 29, l: 75.5}, {id: 19, t: 39, l: 75.5}, {id: 20, t: 48, l: 75.5}, {id: 21, t: 57, l: 75.5},
+            {id: 22, t: 34, l: 18.5}, {id: 23, t: 39, l: 23.5}, {id: 24, t: 45, l: 28.5}, {id: 25, t: 51, l: 33.5},
+            {id: 26, t: 59, l: 64.5}, {id: 27, t: 59, l: 70.5}
+        ];
+        const layers = document.getElementById('seat-layers');
+        seatPositions.forEach(pos => {
+            const div = document.createElement('div');
+            div.className = 'seat';
+            div.style.top = pos.t + '%'; div.style.left = pos.l + '%';
+            div.innerText = pos.id;
+            div.onclick = () => {
+                document.querySelectorAll('.seat').forEach(s => s.classList.remove(`selected-${currentUser.grade}`));
+                div.classList.add(`selected-${currentUser.grade}`);
+                selectedSeat = pos.id;
+                document.getElementById('reserve-btn').style.display = 'block';
+                document.getElementById('status').innerText = `${pos.id}番席を選択中`;
+            };
+            layers.appendChild(div);
         });
+    }
+
+    async function reserve() {
+        const time = document.getElementById('start-time').value;
+        await fetch(GAS_URL, {
+            method: "POST",
+            mode: "no-cors",
+            body: JSON.stringify({
+                type: "reserve",
+                id: currentUser.id,
+                seatId: selectedSeat,
+                time: time
+            })
+        });
+        alert(`${time}から${selectedSeat}番席で予約しました。`);
+        location.reload();
     }
 </script>
 </body>
