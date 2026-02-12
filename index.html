@@ -64,14 +64,13 @@
     let currentUser = null;
     let selectedSeat = null;
 
-    // 15分刻みの時間生成 ($16:30 \sim 22:30$)
+    // 15分刻みの時間生成 (16:30〜22:30)
     const select = document.getElementById('start-time');
     for(let h=16; h<=22; h++){
         for(let m=0; m<60; m+=15){
             if(h==16 && m<30) continue;
             if(h==22 && m>30) break;
             let time = `${h}:${m==0?'00':m}`;
-            let opt = new Array(time);
             select.add(new Option(time, time));
         }
     }
@@ -81,19 +80,23 @@
         const id = document.getElementById('student-id').value;
         const pass = document.getElementById('birth-day').value;
         
-        const res = await fetch(GAS_URL, {
-            method: "POST",
-            body: JSON.stringify({ type: "login", id: id, pass: pass })
-        }).then(r => r.json());
+        try {
+            const res = await fetch(GAS_URL, {
+                method: "POST",
+                body: JSON.stringify({ type: "login", id: id, pass: pass })
+            }).then(r => r.json());
 
-        if(res.result === "success") {
-            currentUser = { id: id, name: res.name, grade: res.grade };
-            document.getElementById('user-display').innerText = res.name;
-            document.getElementById('login-screen').classList.remove('active');
-            document.getElementById('reserve-screen').classList.add('active');
-            initMap();
-        } else {
-            alert("ログインに失敗しました。");
+            if(res.result === "success") {
+                currentUser = { id: id, name: res.name, grade: res.grade };
+                document.getElementById('user-display').innerText = res.name;
+                document.getElementById('login-screen').classList.remove('active');
+                document.getElementById('reserve-screen').classList.add('active');
+                initMap();
+            } else {
+                alert("ログインに失敗しました。");
+            }
+        } catch(e) {
+            alert("ログインエラーが発生しました。");
         }
     }
 
@@ -107,31 +110,30 @@
             {id: 26, t: 59, l: 64.5}, {id: 27, t: 59, l: 70.5}
         ];
         const layers = document.getElementById('seat-layers');
+        layers.innerHTML = ""; // 念のため初期化
+        
         seatPositions.forEach(pos => {
             const div = document.createElement('div');
             div.className = 'seat';
             div.style.top = pos.t + '%'; div.style.left = pos.l + '%';
             div.innerText = pos.id;
+            
             div.onclick = () => {
-                // 1. 安全策：もし学年データが空だった場合の予備を設定
-                onst grade = currentUser && currentUser.grade ? currentUser.grade : "不明";
+                // ここを修正しました (onst -> const)
+                const grade = currentUser && currentUser.grade ? currentUser.grade : "不明";
                 const gradeClass = grade.substring(0, 1);
 
-                // 2. 全座席の色を一旦リセット
                 document.querySelectorAll('.seat').forEach(s => {
                     s.classList.remove('selected-小', 'selected-中', 'selected-高');
                 });
 
-                // 3. 色を付ける（小・中・高 のいずれかに該当する場合のみ）
                 if (['小', '中', '高'].includes(gradeClass)) {
                     div.classList.add(`selected-${gradeClass}`);
                 } else {
-                    // 学年が判定できない場合はとりあえずオレンジ色にする等の予備処理
                     div.style.backgroundColor = "orange";
                 }
                 
                 selectedSeat = pos.id;
-                // 4. 表示の更新（ここが動かないと「選択中」が出ません）
                 const statusEl = document.getElementById('status');
                 const reserveBtn = document.getElementById('reserve-btn');
                 if (statusEl) statusEl.innerHTML = `<strong>${pos.id}番席</strong> (${grade}) を選択中`;
@@ -143,24 +145,23 @@
 
     async function reserve() {
         const time = document.getElementById('start-time').value;
-        await fetch(GAS_URL, {
-            method: "POST",
-            mode: "no-cors",
-            body: JSON.stringify({
-                type: "reserve",
-                id: currentUser.id,
-                seatId: selectedSeat,
-                time: time
-            })
-        });
-        alert(`${time}から${selectedSeat}番席で予約しました。`);
-        location.reload();
+        try {
+            await fetch(GAS_URL, {
+                method: "POST",
+                mode: "no-cors",
+                body: JSON.stringify({
+                    type: "reserve",
+                    id: currentUser.id,
+                    seatId: selectedSeat,
+                    time: time
+                })
+            });
+            alert(`${time}から${selectedSeat}番席で予約しました。`);
+            location.reload();
+        } catch(e) {
+            alert("予約送信中にエラーが発生しました。");
+        }
     }
 </script>
 </body>
 </html>
-
-
-
-
-
