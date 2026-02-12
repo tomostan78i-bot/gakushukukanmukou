@@ -14,201 +14,88 @@
         .classroom-map { width: 100%; display: block; }
         .seat {
             position: absolute; width: 6%; height: 9%; border: 1px solid rgba(0,0,0,0.2);
-            border-radius: 4px; cursor: pointer; display: flex; align-items: center;
-            justify-content: center; font-size: 10px; font-weight: bold;
-            background: rgba(255,255,255,0.6); transition: 0.2s;
+            cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: bold; color: #555;
         }
-        /* 学年カラーの設定 */
-        .selected-小 { background-color: #ff5252 !important; color: white; }
-        .selected-中 { background-color: #448aff !important; color: white; }
-        .selected-高 { background-color: #4caf50 !important; color: white; }
-        .selected-etc { background-color: #ff9800 !important; color: white; } /* 判定不能時 */
-
-        .control-panel { background: white; padding: 20px; border-radius: 12px; text-align: center; }
-        select { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; }
-        .btn { width: 100%; padding: 15px; border: none; border-radius: 30px; font-weight: bold; cursor: pointer; }
-        .btn-main { background: #fd7e14; color: white; }
+        .seat.reserved { background-color: #ccc; cursor: not-allowed; }
+        /* 学年別カラー */
+        .selected-小 { background-color: #ffcccc !important; border: 2px solid #ff4444; }
+        .selected-中 { background-color: #ccffcc !important; border: 2px solid #44bb44; }
+        .selected-高 { background-color: #ccccff !important; border: 2px solid #4444ff; }
+        .selected-etc { background-color: #ffffcc !important; border: 2px solid #bbbb44; }
+        
+        .btn { width: 100%; padding: 15px; background: #007bff; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; margin-top: 10px; }
+        .btn:disabled { background: #ccc; }
+        #status { margin: 15px 0; padding: 10px; background: #e9ecef; border-radius: 5px; width: 100%; text-align: center; }
     </style>
 </head>
 <body>
 
     <div id="login-screen" class="screen active">
         <div class="login-card">
-            <h2>向日教室 ログイン</h2>
+            <h2>向日教室 予約</h2>
             <input type="text" id="student-id" placeholder="生徒番号">
-            <input type="password" id="birth-day" placeholder="誕生日 (例: 0512)">
-            <button class="btn btn-main" onclick="login()">ログイン</button>
+            <input type="text" id="birth-day" placeholder="誕生日(4桁)">
+            <button class="btn" onclick="login()">ログイン</button>
         </div>
     </div>
 
     <div id="reserve-screen" class="screen">
         <h3>こんにちは、<span id="user-display"></span>さん</h3>
+        <p>予約する席をタップしてください</p>
+        
         <div class="map-wrapper">
-            <img src="向日教室(2025出席表)-01.jpg" class="classroom-map">
+            <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjN59KNoLsc_r-vCj_Lg0XG_tS0E-074X8-jO6v5P8v2C8R8v2C8R8v2C8R8v2C8R8v2C8R8v2C8R8v2C8R8v2C8R8v2C8R8v2C8R8v2C8R8v2C8R8v2C8R8v2C8R8v2C/s1600/map.png" class="classroom-map">
             <div id="seat-layers"></div>
         </div>
-        <div class="control-panel">
-            <label>開始時間を選択:</label>
-            <select id="start-time"></select>
-            <div id="status" style="margin: 10px 0; font-weight: bold;">席を選んでください</div>
-            <button id="reserve-btn" class="btn btn-main" style="display:none;" onclick="reserve()">予約を確定する</button>
-        </div>
+
+        <div id="status">席を選択してください</div>
+
+        <label>開始時間：</label>
+        <select id="start-time" style="width:100%; padding:10px; margin-bottom:10px;">
+            </select>
+
+        <button id="reserve-btn" class="btn" style="display:none;" onclick="reserve()">予約を確定する</button>
     </div>
 
 <script>
-    // 新しくデプロイしたURLをここに貼り付けてください
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbwNOqLYV-Xg2h8VGvtXbjjE5rGJbkH69oC_w3Sp7we1Zq700S5_YjakdPVpNoTakPYz/exec";
+    // ★★★ ここに新しいGASのURLを貼り付けてください ★★★
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbw3TPezAjSzMQkcocIPkZ6PGdsWDlB5VSw0FmdOEcxU_FhdCo8RNdkVqHNESvkdPr3V/exec";
     
     let currentUser = null;
     let selectedSeat = null;
 
-    // 時間プルダウン生成
-    const select = document.getElementById('start-time');
-    for(let h=16; h<=22; h++){
-        for(let m=0; m<60; m+=15){
-            if(h==16 && m<30) continue;
-            if(h==22 && m>30) break;
-            let time = h + ":" + (m==0 ? "00" : m);
-            select.add(new Option(time, time));
-        }
-    }
-
-   async function login() {
-    const id = document.getElementById('student-id').value;
-    const pass = document.getElementById('birth-day').value;
-    if(!id || !pass) return alert("番号と誕生日を入力してください");
-
-    const loginBtn = document.querySelector('#login-screen .btn');
-    loginBtn.innerText = "通信中...";
-    loginBtn.disabled = true;
-
-    try {
-        // mode: "no-cors" を削除し、シンプルにPOSTします
-        const response = await fetch(GAS_URL, {
-            method: "POST",
-            body: JSON.stringify({ type: "login", id: id, pass: pass })
-        });
-        
-        // GASからの返信を読み取ります
-        const res = await response.json();
-
-        if(res.result === "success") {
-            currentUser = { id: id, name: res.name, grade: res.grade };
-            document.getElementById('user-display').innerText = res.name;
-            document.getElementById('login-screen').classList.remove('active');
-            document.getElementById('reserve-screen').classList.add('active');
-            initMap();
-        } else {
-            alert("ログイン失敗: " + (res.msg || "データが一致しません"));
-        }
-    } catch(e) {
-        console.error("詳細エラー:", e);
-        // ここでエラーが出る場合は、URLが最新でないか、GAS側でsetHeaderが漏れています
-        alert("通信エラーが発生しました。ブラウザのコンソール(F12)を確認してください。");
-    } finally {
-        loginBtn.innerText = "ログイン";
-        loginBtn.disabled = false;
-    }
-}
-
-    function initMap() {
-        const seatPositions = [
-            {id: 1, t: 20, l: 47.5}, {id: 2, t: 20, l: 53.5}, {id: 3, t: 20, l: 59.5},
-            {id: 4, t: 30, l: 29.5}, {id: 5, t: 30, l: 34.5}, {id: 6, t: 30, l: 41.5}, {id: 7, t: 30, l: 47.5}, {id: 8, t: 30, l: 54.5}, {id: 9, t: 30, l: 60.5}, {id: 10, t: 30, l: 66.5},
-            {id: 11, t: 40, l: 34.5}, {id: 12, t: 40, l: 41.5}, {id: 13, t: 40, l: 46.5}, {id: 14, t: 40, l: 54.5}, {id: 15, t: 40, l: 61.5}, {id: 16, t: 40, l: 67.5},
-            {id: 17, t: 20, l: 75.5}, {id: 18, t: 29, l: 75.5}, {id: 19, t: 39, l: 75.5}, {id: 20, t: 48, l: 75.5}, {id: 21, t: 57, l: 75.5},
-            {id: 22, t: 34, l: 18.5}, {id: 23, t: 39, l: 23.5}, {id: 24, t: 45, l: 28.5}, {id: 25, t: 51, l: 33.5},
-            {id: 26, t: 59, l: 64.5}, {id: 27, t: 59, l: 70.5}
-        ];
-        const layers = document.getElementById('seat-layers');
-        layers.innerHTML = "";
-        
-        seatPositions.forEach(pos => {
-            const div = document.createElement('div');
-            div.className = 'seat';
-            div.style.top = pos.t + '%'; div.style.left = pos.l + '%';
-            div.innerText = pos.id;
-            
-            div.onclick = () => {
-                const isSelected = div.classList.contains('selected-小') || div.classList.contains('selected-中') || div.classList.contains('selected-高') || div.classList.contains('selected-etc');
-
-                // 全座席のリセット（ここを強化しました）
-                document.querySelectorAll('.seat').forEach(s => {
-                    s.classList.remove('selected-小', 'selected-中', 'selected-高', 'selected-etc');
-                    s.style.backgroundColor = ""; // 直接指定した色も消去
-                });
-
-                if (isSelected) {
-                    // 同じ席をタップした場合は選択解除
-                    selectedSeat = null;
-                    document.getElementById('status').innerText = "席を選んでください";
-                    document.getElementById('reserve-btn').style.display = 'none';
-                } else {
-                    // 新しく選択
-                    const gradeChar = (currentUser.grade || "無").substring(0,1);
-                    if (['小', '中', '高'].includes(gradeChar)) {
-                        div.classList.add(`selected-${gradeChar}`);
-                    } else {
-                        div.classList.add('selected-etc');
-                    }
-                    selectedSeat = pos.id;
-                    document.getElementById('status').innerHTML = `<strong>${pos.id}番席</strong> (${currentUser.grade}) を選択中`;
-                    document.getElementById('reserve-btn').style.display = 'block';
-                }
-            };
-            layers.appendChild(div);
+    // 時間の選択肢生成 (14:00 - 21:00)
+    const timeSelect = document.getElementById('start-time');
+    for(let h=14; h<=21; h++) {
+        ['00', '30'].forEach(m => {
+            let opt = document.createElement('option');
+            opt.value = `${h}:${m}`;
+            opt.innerText = `${h}:${m}`;
+            timeSelect.appendChild(opt);
         });
     }
 
-    async function reserve() {
-        if(!selectedSeat) return;
-        const btn = document.getElementById('reserve-btn');
-        const time = document.getElementById('start-time').value;
-        btn.disabled = true;
-        btn.innerText = "送信中...";
+    async function login() {
+        const id = document.getElementById('student-id').value;
+        const pass = document.getElementById('birth-day').value;
+        if(!id || !pass) return alert("番号と誕生日を入力してください");
+
+        const loginBtn = document.querySelector('#login-screen .btn');
+        loginBtn.innerText = "通信中...";
+        loginBtn.disabled = true;
 
         try {
-            await fetch(GAS_URL, {
+            // mode: 'cors' を指定し、Content-Typeを調整してCORSエラーを回避
+            const response = await fetch(GAS_URL, {
                 method: "POST",
-                body: JSON.stringify({
-                    type: "reserve",
-                    id: currentUser.id,
-                    seatId: selectedSeat,
-                    time: time
-                })
+                mode: "cors",
+                headers: { "Content-Type": "text/plain" },
+                body: JSON.stringify({ type: "login", id: id, pass: pass })
             });
-            alert(`${time}から${selectedSeat}番席の予約を承りました。`);
-            location.reload(); // ページをリセットしてログイン画面に戻る
-        } catch(e) {
-            alert("予約エラーが発生しました。");
-            btn.disabled = false;
-            btn.innerText = "予約を確定する";
-        }
-    }
-</script>
-</body>
-</html>
+            
+            const res = await response.json();
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+            if(res.result === "success") {
+                currentUser = { id: id, name: res.name, grade: res.grade };
+                document.getElementById('user-display').innerText = res.name;
+                document.
