@@ -113,21 +113,30 @@
             div.style.top = pos.t + '%'; div.style.left = pos.l + '%';
             div.innerText = pos.id;
             div.onclick = () => {
-                // 学年の1文字目（小・中・高）だけを抽出して判定に使う
-    　　　　　　 const gradeClass = currentUser.grade.substring(0, 1); 
-    
-    　　　　　　 // 全座席から選択色を一度クリア（全ての可能性を削除）
-    　　　　　　 document.querySelectorAll('.seat').forEach(s => {
-        　　　　     s.classList.remove('selected-小', 'selected-中', 'selected-高');
-    　　　　　　 });
+                // 1. 安全策：もし学年データが空だった場合の予備を設定
+                onst grade = currentUser && currentUser.grade ? currentUser.grade : "不明";
+                const gradeClass = grade.substring(0, 1);
 
-   　　　　　　  // 判定した学年色を追加
-   　　　　　　  div.classList.add(`selected-${gradeClass}`);
-    
-  　　　　　　   selectedSeat = pos.id;
-   　　　　　　  document.getElementById('reserve-btn').style.display = 'block';
-   　　　　　　  document.getElementById('status').innerHTML = `<strong>${pos.id}番席</strong> (${currentUser.grade}) を選択中`;
-　　　　　　　};
+                // 2. 全座席の色を一旦リセット
+                document.querySelectorAll('.seat').forEach(s => {
+                    s.classList.remove('selected-小', 'selected-中', 'selected-高');
+                });
+
+                // 3. 色を付ける（小・中・高 のいずれかに該当する場合のみ）
+                if (['小', '中', '高'].includes(gradeClass)) {
+                    div.classList.add(`selected-${gradeClass}`);
+                } else {
+                    // 学年が判定できない場合はとりあえずオレンジ色にする等の予備処理
+                    div.style.backgroundColor = "orange";
+                }
+                
+                selectedSeat = pos.id;
+                // 4. 表示の更新（ここが動かないと「選択中」が出ません）
+                const statusEl = document.getElementById('status');
+                const reserveBtn = document.getElementById('reserve-btn');
+                if (statusEl) statusEl.innerHTML = `<strong>${pos.id}番席</strong> (${grade}) を選択中`;
+                if (reserveBtn) reserveBtn.style.display = 'block';
+            };
             layers.appendChild(div);
         });
     }
@@ -150,6 +159,7 @@
 </script>
 </body>
 </html>
+
 
 
 
