@@ -107,3 +107,45 @@
         const seats = [
             {id: 1, x: 10, y: 20}, {id: 2, x: 20, y: 20}, {id: 3, x: 30, y: 20},
             {id: 4, x: 10, y: 40}, {id: 5, x: 20, y: 40}, {id: 6, x: 30, y: 40},
+            {id: 7, x: 10, y: 60}, {id: 8, x: 20, y: 60}, {id: 9, x: 30, y: 60}, {id: 10, x: 45, y: 60}
+        ];
+        seats.forEach(pos => {
+            const div = document.createElement('div');
+            div.className = 'seat';
+            div.style.left = pos.x + "%";
+            div.style.top = pos.y + "%";
+            div.innerText = pos.id;
+            div.onclick = () => {
+                document.querySelectorAll('.seat').forEach(s => s.classList.remove('selected-小','selected-中','selected-高','selected-etc'));
+                div.classList.add('selected-中'); // 簡易的な色付け
+                selectedSeat = pos.id;
+                document.getElementById('status').innerHTML = `<strong>${pos.id}番席</strong> を選択中`;
+                document.getElementById('reserve-btn').style.display = 'block';
+            };
+            layers.appendChild(div);
+        });
+    }
+
+    async function reserve() {
+        if(!selectedSeat) return;
+        const btn = document.getElementById('reserve-btn');
+        const time = document.getElementById('start-time').value;
+        btn.disabled = true;
+        btn.innerText = "送信中...";
+        try {
+            await fetch(GAS_URL, {
+                method: "POST",
+                mode: "no-cors",
+                body: JSON.stringify({ type: "reserve", id: currentUser.id, seatId: selectedSeat, time: time })
+            });
+            alert(`${time}から${selectedSeat}番席の予約を承りました。`);
+            location.reload(); 
+        } catch(e) {
+            alert("予約エラーが発生しました。");
+            btn.disabled = false;
+            btn.innerText = "予約を確定する";
+        }
+    }
+</script>
+</body>
+</html>
